@@ -40,30 +40,40 @@
       <div class="card shadow">
         <div class="card-header fw-semibold">Payment Details</div>
         <div class="card-body">
+          <form method="POST" action="{{ url_for('payment', booking_id=booking.id) }}">
           {% if booking.payment_mode == 'card' %}
             <div class="mb-3">
               <label class="form-label">Card Number</label>
-              <input type="text" class="form-control" placeholder="**** **** **** 1234" maxlength="19">
+              <input type="text" name="card_number" class="form-control" placeholder="**** **** **** 1234"
+                     maxlength="19" required pattern="\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}"
+                     title="Enter a valid 16-digit card number">
             </div>
             <div class="row mb-3">
               <div class="col">
                 <label class="form-label">Expiry</label>
-                <input type="text" class="form-control" placeholder="MM/YY" maxlength="5">
+                <input type="text" name="expiry" class="form-control" placeholder="MM/YY"
+                       maxlength="5" required pattern="(0[1-9]|1[0-2])\/\d{2}"
+                       title="Enter expiry in MM/YY format">
               </div>
               <div class="col">
                 <label class="form-label">CVV</label>
-                <input type="text" class="form-control" placeholder="***" maxlength="3">
+                <input type="text" name="cvv" class="form-control" placeholder="***"
+                       maxlength="3" required pattern="\d{3}"
+                       title="Enter a 3-digit CVV">
               </div>
             </div>
           {% elif booking.payment_mode == 'upi' %}
             <div class="mb-3">
               <label class="form-label">UPI ID</label>
-              <input type="text" class="form-control" placeholder="yourname@upi">
+              <input type="text" name="upi_id" class="form-control" placeholder="yourname@upi"
+                     required pattern="[\w.\-]+@[\w]+"
+                     title="Enter a valid UPI ID (e.g. name@upi)">
             </div>
           {% elif booking.payment_mode == 'netbanking' %}
             <div class="mb-3">
               <label class="form-label">Select Bank</label>
-              <select class="form-select">
+              <select name="bank" class="form-select" required>
+                <option value="">-- Select a bank --</option>
                 <option>SBI</option><option>HDFC</option>
                 <option>ICICI</option><option>Axis</option>
               </select>
@@ -74,7 +84,6 @@
             </div>
           {% endif %}
 
-          <form method="POST" action="{{ url_for('payment', booking_id=booking.id) }}">
             <button type="submit" class="btn btn-success w-100 py-2 mt-2 fw-semibold">
               Confirm &amp; Pay Rs. {{ "%.2f"|format(booking.total_cost) }}
             </button>

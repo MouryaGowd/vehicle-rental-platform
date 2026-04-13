@@ -332,6 +332,35 @@ async def payment(request: Request, booking_id: int):
         return RedirectResponse(url="/my-rentals", status_code=302)
 
     if request.method == "POST":
+        form = await request.form()
+        payment_mode = booking["payment_mode"]
+        error = None
+
+        if payment_mode == "card":
+            card_number = str(form.get("card_number", "")).replace(" ", "").replace("-", "")
+            expiry      = str(form.get("expiry", "")).strip()
+            cvv         = str(form.get("cvv", "")).strip()
+            if not card_number.isdigit() or len(card_number) != 16:
+                error = "Enter a valid 16-digit card number."
+            elif not (len(expiry) == 5 and expiry[2] == "/" and expiry[:2].isdigit() and expiry[3:].isdigit()
+                      and 1 <= int(expiry[:2]) <= 12):
+                error = "Enter expiry in MM/YY format."
+            elif not (cvv.isdigit() and len(cvv) == 3):
+                error = "Enter a valid 3-digit CVV."
+        elif payment_mode == "upi":
+            upi_id = str(form.get("upi_id", "")).strip()
+            if "@" not in upi_id or len(upi_id) < 3:
+                error = "Enter a valid UPI ID (e.g. name@upi)."
+        elif payment_mode == "netbanking":
+            bank = str(form.get("bank", "")).strip()
+            if not bank:
+                error = "Please select a bank."
+
+        if error:
+            _flash(request, error, "danger")
+            db.close()
+            return RedirectResponse(url=f"/payment/{booking_id}", status_code=302)
+
         db.execute(
             'UPDATE rental_bookings SET payment_status = "paid" WHERE id = ?', (booking_id,)
         )
