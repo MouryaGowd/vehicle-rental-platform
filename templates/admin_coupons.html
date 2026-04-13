@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Manage Coupons{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h3>Discount Coupons</h3>
+  <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#addCouponModal">
+    + Add Coupon
+  </button>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-bordered align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th>#</th>
+        <th>Code</th>
+        <th>Discount</th>
+        <th>Description</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in coupons %}
+      <tr>
+        <td>{{ c.id }}</td>
+        <td><code class="fs-6">{{ c.code }}</code></td>
+        <td><strong class="text-success">{{ c.discount_percent|int }}% off</strong></td>
+        <td>{{ c.description or '—' }}</td>
+        <td>
+          <span class="badge {% if c.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+            {% if c.is_active %}Active{% else %}Inactive{% endif %}
+          </span>
+        </td>
+        <td class="d-flex gap-2">
+          <form method="POST" action="{{ url_for('admin_coupons') }}">
+            <input type="hidden" name="action" value="toggle">
+            <input type="hidden" name="coupon_id" value="{{ c.id }}">
+            <button type="submit" class="btn btn-sm btn-outline-dark">
+              {% if c.is_active %}Deactivate{% else %}Activate{% endif %}
+            </button>
+          </form>
+          <form method="POST" action="{{ url_for('admin_coupons') }}"
+                onsubmit="return confirm('Delete coupon {{ c.code }}?')">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="coupon_id" value="{{ c.id }}">
+            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="text-center text-muted">No coupons yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="alert alert-info mt-3">
+  <strong>How coupons work:</strong> Customers enter a code at checkout.
+  The discount percentage is applied after weekend/seasonal surcharges are calculated.
+  Available codes are shown as hints on the booking page.
+</div>
+
+<!-- Add Coupon Modal -->
+<div class="modal fade" id="addCouponModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title">Add New Coupon</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('admin_coupons') }}">
+        <input type="hidden" name="action" value="add">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Coupon Code *</label>
+            <input type="text" name="code" class="form-control text-uppercase"
+                   placeholder="e.g. SUMMER25" required style="text-transform:uppercase">
+            <small class="text-muted">Uppercase letters and numbers only.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Discount Percentage *</label>
+            <div class="input-group">
+              <input type="number" name="discount_percent" class="form-control"
+                     min="1" max="100" step="0.1" placeholder="e.g. 15" required>
+              <span class="input-group-text">%</span>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <input type="text" name="description" class="form-control"
+                   placeholder="e.g. Summer special deal">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-dark">Add Coupon</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

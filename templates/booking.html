@@ -5,21 +5,72 @@
 <div class="row justify-content-center">
   <div class="col-md-7">
     <h3 class="mb-1">Book Vehicle</h3>
-    <p class="text-muted mb-3">{{ vehicle.brand }} {{ vehicle.model }} — Rs. {{ "%.0f"|format(vehicle.price_per_day) }}/day</p>
+    <p class="text-muted mb-4">
+      {{ vehicle.brand }} {{ vehicle.model }} &bull;
+      Rs. {{ "%.0f"|format(vehicle.price_per_hour) }}/hr &bull;
+      Rs. {{ "%.0f"|format(vehicle.price_per_day) }}/day
+    </p>
 
     <div class="card shadow">
       <div class="card-body p-4">
         <form method="POST" action="{{ url_for('book_vehicle', vid=vehicle.id) }}" id="bookingForm">
 
-          <div class="mb-3">
-            <label class="form-label">Pickup Date & Time</label>
-            <input type="datetime-local" name="start_datetime" id="startDt" class="form-control" required>
+          <!-- Rental Type -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Rental Type</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="rental_type"
+                       id="typeDaily" value="daily" checked>
+                <label class="form-check-label" for="typeDaily">
+                  Daily — Rs. {{ "%.0f"|format(vehicle.price_per_day) }}/day
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="rental_type"
+                       id="typeHourly" value="hourly">
+                <label class="form-check-label" for="typeHourly">
+                  Hourly — Rs. {{ "%.0f"|format(vehicle.price_per_hour) }}/hr
+                </label>
+              </div>
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Return Date & Time</label>
-            <input type="datetime-local" name="end_datetime" id="endDt" class="form-control" required>
+
+          <!-- Dates -->
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Pickup Date &amp; Time</label>
+              <input type="datetime-local" name="start_datetime" id="startDt"
+                     class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Return Date &amp; Time</label>
+              <input type="datetime-local" name="end_datetime" id="endDt"
+                     class="form-control" required>
+            </div>
           </div>
+
+          <!-- Cost Preview -->
+          <div id="costPreview" class="alert alert-info d-none mb-3">
+            <strong>Estimated Cost:</strong> <span id="costValue">—</span>
+            <br><small class="text-muted">Weekend/seasonal surcharges may apply. Final amount shown at confirmation.</small>
+          </div>
+
+          <!-- Coupon -->
           <div class="mb-3">
+            <label class="form-label">Coupon Code <span class="text-muted small">(optional)</span></label>
+            <div class="input-group">
+              <input type="text" name="coupon_code" id="couponInput"
+                     class="form-control text-uppercase" placeholder="e.g. WELCOME10"
+                     style="text-transform:uppercase">
+              <span class="input-group-text">
+                <small class="text-muted">Try: WELCOME10 · SUMMER20 · VIP15</small>
+              </span>
+            </div>
+          </div>
+
+          <!-- Payment Mode -->
+          <div class="mb-4">
             <label class="form-label">Payment Mode</label>
             <select name="payment_mode" class="form-select" required>
               <option value="cash">Cash on Pickup</option>
@@ -29,42 +80,62 @@
             </select>
           </div>
 
-          <div id="costPreview" class="alert alert-info d-none">
-            <strong>Estimated Cost:</strong> <span id="costValue">—</span>
-            <br><small class="text-muted">Final amount may vary based on seasonal/weekend pricing.</small>
-          </div>
-
-          <button type="submit" class="btn btn-dark w-100 py-2">Confirm Booking</button>
+          <button type="submit" class="btn btn-dark w-100 py-2 fw-semibold">
+            Confirm Booking
+          </button>
         </form>
       </div>
     </div>
-    <a href="{{ url_for('vehicle_detail', vid=vehicle.id) }}" class="btn btn-link mt-2">Back to Vehicle</a>
+    <a href="{{ url_for('vehicle_detail', vid=vehicle.id) }}" class="btn btn-link mt-2">
+      Back to Vehicle
+    </a>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  const pricePerDay = {{ vehicle.price_per_day }};
+  const pricePerDay  = {{ vehicle.price_per_day }};
+  const pricePerHour = {{ vehicle.price_per_hour }};
+
   const startDt = document.getElementById('startDt');
   const endDt   = document.getElementById('endDt');
   const preview = document.getElementById('costPreview');
   const costVal = document.getElementById('costValue');
 
+  // Set minimum datetime to now
+  const nowStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+                   .toISOString().slice(0, 16);
+  startDt.min = nowStr;
+  endDt.min   = nowStr;
+  startDt.addEventListener('change', () => { endDt.min = startDt.value; updateCost(); });
+  endDt.addEventListener('change', updateCost);
+  document.querySelectorAll('input[name="rental_type"]').forEach(r =>
+    r.addEventListener('change', updateCost)
+  );
+
   function updateCost() {
     const s = new Date(startDt.value);
     const e = new Date(endDt.value);
-    if (startDt.value && endDt.value && e > s) {
-      const hours = (e - s) / 3600000;
-      const days  = Math.max(1, hours / 24);
-      const cost  = (pricePerDay * days).toFixed(2);
-      costVal.textContent = 'Rs. ' + cost + ' (approx. ' + days.toFixed(1) + ' day(s))';
-      preview.classList.remove('d-none');
-    } else {
+    if (!startDt.value || !endDt.value || e <= s) {
       preview.classList.add('d-none');
+      return;
     }
+    const rentalType = document.querySelector('input[name="rental_type"]:checked').value;
+    const hours = (e - s) / 3600000;
+    let cost, label;
+
+    if (rentalType === 'hourly') {
+      cost  = pricePerHour * hours;
+      label = hours.toFixed(1) + ' hour(s)';
+    } else {
+      const days = Math.max(1, hours / 24);
+      cost  = pricePerDay * days;
+      label = days.toFixed(1) + ' day(s)';
+    }
+
+    costVal.textContent = 'Rs. ' + cost.toFixed(2) + ' (base) for ' + label;
+    preview.classList.remove('d-none');
   }
-  startDt.addEventListener('change', updateCost);
-  endDt.addEventListener('change', updateCost);
 </script>
 {% endblock %}

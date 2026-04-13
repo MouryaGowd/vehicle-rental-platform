@@ -1,20 +1,32 @@
 @echo off
 echo ============================================
-echo  VehicleRent — Starting Server
+echo  VehicleRent - Starting Server
 echo ============================================
 echo.
 
-:: Check if database exists
+:: ── Check virtual environment ────────────────────────────────────────────────
+if not exist venv\Scripts\python.exe (
+    echo [ERROR] Virtual environment not found.
+    echo         Please run setup.bat first.
+    pause
+    exit /b 1
+)
+
+:: ── Initialize DB if missing ─────────────────────────────────────────────────
 if not exist rental.db (
-    echo [WARNING] Database not found. Running setup first...
-    python init_db.py
+    echo [INFO] Database not found. Initializing...
+    venv\Scripts\python.exe init_db.py
     echo.
 )
 
-echo Server starting at http://localhost:5000
-echo Press Ctrl+C to stop.
+echo  Server starting at:
+echo.
+echo    http://localhost:5000
+echo.
+echo  Press Ctrl+C to stop.
+echo ============================================
 echo.
 
-python app.py
+venv\Scripts\python.exe app.py
 
 pause
