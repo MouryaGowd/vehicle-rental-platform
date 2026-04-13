@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import datetime, timedelta
 
+import jinja2
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,7 +14,14 @@ from werkzeug.security import check_password_hash, generate_password_hash
 app = FastAPI(title="VehicleRent")
 app.add_middleware(SessionMiddleware, secret_key="vehicle-rental-secret-key-jain-2024")
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+
+# cache_size=0 disables Jinja2's LRU template cache, which avoids a hash error
+# in Jinja2 3.1.3+ when Starlette passes the context dict as template globals
+# (dicts inside the context make the cache key tuple unhashable).
+templates = Jinja2Templates(env=jinja2.Environment(
+    loader=jinja2.FileSystemLoader("templates"),
+    cache_size=0,
+))
 
 DATABASE = "rental.db"
 
