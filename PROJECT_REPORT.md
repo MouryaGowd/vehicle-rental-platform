@@ -273,7 +273,266 @@ Late Return Fee (on vehicle return):
 
 ---
 
-## 9. How Requirements Are Satisfied
+## 9. API Reference
+
+### 9.1 How FastAPI Routing Works in This Project
+
+All routes are declared with `@app.api_route(path, methods=[...])` which handles both GET and POST on the same URL — matching the traditional HTML form pattern where a page renders on GET and processes the form on POST.
+
+```python
+# Example: single function handles GET (show page) and POST (process form)
+@app.api_route("/login", methods=["GET", "POST"])
+async def login(request: Request):
+    if request.method == "POST":
+        form = await request.form()   # parses multipart/form-data
+        # ... validate and redirect
+    return templates.TemplateResponse(request, "login.html", ctx(request))
+```
+
+Every handler receives a `Request` object from Starlette. Path parameters (e.g. `vid: int`) are declared in the function signature and FastAPI parses + validates them automatically.
+
+---
+
+### 9.2 Complete API Endpoint Table
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/` | Public | Redirects to `/vehicles` |
+| GET | `/login` | Public | Renders login form |
+| POST | `/login` | Public | Validates credentials, sets session, redirects by role |
+| GET | `/signup` | Public | Renders registration form |
+| POST | `/signup` | Public | Creates new customer account, redirects to login |
+| GET | `/logout` | Any logged-in | Clears session, redirects to login |
+| GET | `/vehicles` | Public | Browse + filter vehicle listing |
+| GET | `/vehicles/{vid}` | Public | Vehicle detail page |
+| GET | `/book/{vid}` | Customer | Renders booking form for a vehicle |
+| POST | `/book/{vid}` | Customer | Creates booking, applies coupon, redirects to payment |
+| GET | `/payment/{booking_id}` | Customer | Renders payment confirmation page |
+| POST | `/payment/{booking_id}` | Customer | Marks payment as paid, redirects to My Rentals |
+| GET | `/my-rentals` | Customer | Lists all rentals for the logged-in customer |
+| POST | `/rentals/{rid}/extend` | Customer | Extends an active rental by extra hours/days |
+| GET | `/admin/dashboard` | Admin | Stats overview — revenue, active rentals, vehicle count |
+| GET | `/admin/vehicles` | Admin | Lists all vehicles |
+| POST | `/admin/vehicles` | Admin | Add a new vehicle or delete an existing one (`action` field) |
+| GET | `/admin/pricing` | Admin | Lists pricing rules |
+| POST | `/admin/pricing` | Admin | Updates a pricing rule multiplier |
+| GET | `/admin/coupons` | Admin | Lists all coupons |
+| POST | `/admin/coupons` | Admin | Add / toggle / delete a coupon (`action` field) |
+| GET | `/fleet/dashboard` | Fleet / Admin | Fleet status, active rentals, maintenance log |
+| POST | `/fleet/vehicles/{vid}/availability` | Fleet / Admin | Updates a vehicle's availability status |
+| POST | `/fleet/vehicles/{vid}/photo` | Fleet / Admin | Updates the photo filename for a vehicle |
+| POST | `/fleet/maintenance` | Fleet / Admin | Logs a maintenance entry for a vehicle |
+| POST | `/rentals/{rid}/pickup` | Fleet / Admin | Marks a booking as `picked_up` |
+| POST | `/rentals/{rid}/return` | Fleet / Admin | Marks a booking as `returned`, calculates late fees |
+
+---
+
+### 9.3 Request Handling Details
+
+#### Reading Query Parameters (GET filters)
+```python
+# GET /vehicles?type=car&fuel=petrol&seats=5&max_price=3000&available_only=1
+qp             = request.query_params
+vtype          = qp.get("type", "")         # "" if not provided
+seats          = qp.get("seats", "")
+max_price      = qp.get("max_price", "")
+available_only = qp.get("available_only", "")
+```
+
+#### Reading Form Data (POST actions)
+```python
+# POST /book/{vid}  with  Content-Type: multipart/form-data
+form         = await request.form()          # must be awaited (async)
+start_str    = str(form.get("start_datetime", ""))
+rental_type  = str(form.get("rental_type", "daily"))
+coupon_code  = str(form.get("coupon_code", "")).strip().upper()
+payment_mode = str(form.get("payment_mode", "cash"))
+```
+`python-multipart` must be installed for `await request.form()` to work — it is included in `requirements.txt`.
+
+#### Path Parameters (URL variables)
+```python
+# GET /vehicles/3  →  vid = 3 (FastAPI validates it's an integer)
+@app.api_route("/vehicles/{vid}", methods=["GET"])
+async def vehicle_detail(request: Request, vid: int):
+    vehicle = db.execute("SELECT * FROM vehicles WHERE id = ?", (vid,)).fetchone()
+```
+
+#### Dispatching Multiple Actions on One POST Endpoint
+Admin and Fleet routes use a hidden `action` field in the form to dispatch different operations from one endpoint:
+```python
+# POST /admin/vehicles  with  action=add  or  action=delete
+form   = await request.form()
+action = form.get("action")   # "add" or "delete"
+if action == "add":
+    db.execute("INSERT INTO vehicles ...")
+elif action == "delete":
+    db.execute("DELETE FROM vehicles WHERE id = ?", ...)
+```
+
+---
+
+### 9.4 Response Types
+
+#### HTML Page Response (TemplateResponse)
+Used for all pages that render HTML:
+```python
+return templates.TemplateResponse(request, "vehicles.html",
+    ctx(request, vehicles=vehicles_list, filters=filters))
+```
+The `ctx()` helper builds the template context — it pops flash messages from the session, provides a custom `url_for` function, and exposes the session dict so templates can check `session.role`, `session.name`, etc.
+
+#### Redirect Response (Post/Redirect/Get pattern)
+After every POST that modifies data, the handler redirects to prevent double-submission on browser refresh:
+```python
+_flash(request, "Booking confirmed!", "success")
+return RedirectResponse(url=f"/payment/{booking_id}", status_code=302)
+```
+HTTP 302 is used for all redirects (temporary redirect — correct for POST → GET).
+
+---
+
+### 9.5 Session API
+
+Sessions are managed by Starlette's `SessionMiddleware` using signed cookies (`itsdangerous`). The session behaves like a dict:
+
+```python
+# Set session values on login
+request.session["user_id"] = user["id"]
+request.session["name"]    = user["name"]
+request.session["role"]    = user["role"]
+
+# Read session values in any route
+if request.session.get("role") == "admin":
+    ...
+
+# Clear session on logout
+request.session.clear()
+```
+
+Flash messages are stored as a list inside the session and consumed once by `ctx()`:
+```python
+def _flash(request, message, category="info"):
+    request.session.setdefault("_flashes", [])
+    request.session["_flashes"].append({"message": message, "category": category})
+
+# In ctx():
+flashes = request.session.pop("_flashes", [])  # consumed — won't show twice
+```
+
+---
+
+### 9.6 Database API (sqlite3)
+
+SQLite is accessed via Python's built-in `sqlite3` module. `sqlite3.Row` is set as the row factory so rows behave like dicts:
+
+```python
+def get_db():
+    db = sqlite3.connect("rental.db")
+    db.row_factory = sqlite3.Row   # enables row["column_name"] access
+    return db
+
+# Query example — parameterised to prevent SQL injection
+vehicle = db.execute(
+    "SELECT * FROM vehicles WHERE id = ?", (vid,)
+).fetchone()
+
+# Access columns by name
+print(vehicle["brand"], vehicle["price_per_day"])
+
+# Insert with commit
+db.execute("INSERT INTO rental_bookings (...) VALUES (?, ?, ...)", (...))
+db.commit()
+db.close()
+```
+
+---
+
+### 9.7 Template API (Jinja2)
+
+Templates extend `base.html` and use block inheritance:
+
+```html
+<!-- In any child template -->
+{% extends "base.html" %}
+{% block title %}Browse Vehicles{% endblock %}
+{% block content %}
+  <!-- page-specific HTML here -->
+{% endblock %}
+```
+
+**Variables available in every template** (injected by `ctx()`):
+
+| Variable | Type | Usage |
+|---|---|---|
+| `session` | dict | `session.role`, `session.name`, `session.user_id` |
+| `flashes` | list | Iterated to show alert banners |
+| `url_for` | function | `url_for('vehicles')`, `url_for('static', filename='css/style.css')` |
+| `request` | Request | Available but rarely used directly in templates |
+
+**Conditional rendering by role:**
+```html
+{% if session.role == 'admin' %}
+  <a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a>
+{% endif %}
+
+{% if session.role == 'customer' %}
+  <a href="{{ url_for('my_rentals') }}">My Rentals</a>
+{% endif %}
+```
+
+**Looping over query results:**
+```html
+{% for vehicle in vehicles %}
+  <div class="card">
+    <h5>{{ vehicle.brand }} {{ vehicle.model }}</h5>
+    <p>Rs.{{ vehicle.price_per_day }}/day</p>
+    {% if vehicle.availability_status == 'available' %}
+      <a href="{{ url_for('book_vehicle', vid=vehicle.id) }}">Book Now</a>
+    {% endif %}
+  </div>
+{% endfor %}
+```
+
+---
+
+### 9.8 Auth Guard API
+
+Two inline guard functions protect routes. They return a `RedirectResponse` if the check fails, or `None` if it passes. The walrus operator (`:=`) makes the pattern concise:
+
+```python
+def _require_login(request: Request):
+    if "user_id" not in request.session:
+        _flash(request, "Please login first.", "warning")
+        return RedirectResponse(url="/login", status_code=302)
+
+def _require_role(request: Request, *roles):
+    if "user_id" not in request.session:
+        return RedirectResponse(url="/login", status_code=302)
+    if request.session.get("role") not in roles:
+        _flash(request, "Access denied.", "danger")
+        return RedirectResponse(url="/vehicles", status_code=302)
+
+# Usage in every protected route:
+@app.api_route("/my-rentals", methods=["GET"])
+async def my_rentals(request: Request):
+    if (r := _require_login(request)): return r
+    ...
+
+@app.api_route("/admin/dashboard", methods=["GET"])
+async def admin_dashboard(request: Request):
+    if (r := _require_role(request, "admin")): return r
+    ...
+
+@app.api_route("/fleet/dashboard", methods=["GET"])
+async def fleet_dashboard(request: Request):
+    if (r := _require_role(request, "fleet_manager", "admin")): return r
+    ...
+```
+
+---
+
+## 10. How Requirements Are Satisfied
 
 ### Requirement: Three User Roles
 - **Admin** — full control over vehicles, pricing, coupons, revenue monitoring
