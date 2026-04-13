@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="card shadow">
+      <div class="card-header bg-dark text-white text-center py-3">
+        <h4 class="mb-0">Login to VehicleRent</h4>
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('login') }}">
+          <div class="mb-3">
+            <label class="form-label">Email address</label>
+            <input type="email" name="email" class="form-control" placeholder="you@example.com" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" placeholder="Password" required>
+          </div>
+          <button type="submit" class="btn btn-dark w-100 py-2">Login</button>
+        </form>
+        <hr>
+        <p class="text-center mb-0">
+          Don't have an account? <a href="{{ url_for('signup') }}">Sign Up</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body small text-muted">
+        <strong>Demo credentials:</strong><br>
+        Admin: <code>admin@rental.com / admin123</code><br>
+        Fleet: <code>fleet@rental.com / fleet123</code><br>
+        Customer: <code>john@example.com / customer123</code>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

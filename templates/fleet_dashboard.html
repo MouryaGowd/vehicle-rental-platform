@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Fleet Dashboard{% endblock %}
+
+{% block content %}
+<h3 class="mb-4">Fleet Dashboard</h3>
+
+<div class="row">
+  <!-- Left: Vehicles -->
+  <div class="col-lg-7">
+    <h5>Vehicle Fleet</h5>
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered table-sm align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>#</th><th>Vehicle</th><th>Status</th><th>Update Status</th><th>Photo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in vehicles %}
+          <tr>
+            <td>{{ v.id }}</td>
+            <td>{{ v.brand }} {{ v.model }}<br>
+              <small class="text-muted">{{ v.type|title }} &bull; {{ v.fuel_type|title }}</small>
+            </td>
+            <td>
+              <span class="badge
+                {% if v.availability_status == 'available' %}bg-success
+                {% elif v.availability_status == 'rented' %}bg-warning text-dark
+                {% else %}bg-secondary{% endif %}">
+                {{ v.availability_status|replace('_',' ')|title }}
+              </span>
+            </td>
+            <td>
+              <form method="POST" action="{{ url_for('update_availability', vid=v.id) }}" class="d-flex gap-1">
+                <select name="status" class="form-select form-select-sm">
+                  <option value="available" {% if v.availability_status=='available' %}selected{% endif %}>Available</option>
+                  <option value="under_maintenance" {% if v.availability_status=='under_maintenance' %}selected{% endif %}>Under Maintenance</option>
+                  <option value="rented" {% if v.availability_status=='rented' %}selected{% endif %}>Rented</option>
+                </select>
+                <button type="submit" class="btn btn-sm btn-dark">Set</button>
+              </form>
+            </td>
+            <td>
+              <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
+                      data-bs-target="#photoModal{{ v.id }}">Photo</button>
+              <!-- Photo Modal -->
+              <div class="modal fade" id="photoModal{{ v.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                  <div class="modal-content">
+                    <div class="modal-header"><h6 class="modal-title">Update Photo — {{ v.brand }} {{ v.model }}</h6>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('update_vehicle_photo', vid=v.id) }}">
+                      <div class="modal-body">
+                        <label class="form-label">Filename (in static/images/)</label>
+                        <input type="text" name="photo_path" class="form-control"
+                               value="{{ v.photo_path }}" placeholder="car1.jpg">
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-dark">Save</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Active Rentals -->
+    <h5>Active Rentals</h5>
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+        <thead class="table-dark">
+          <tr><th>#</th><th>Customer</th><th>Vehicle</th><th>Return Due</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          {% for r in active_rentals %}
+          <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ r.customer_name }}</td>
+            <td>{{ r.brand }} {{ r.model }}</td>
+            <td>{{ r.end_datetime|replace('T',' ') }}</td>
+            <td>
+              <span class="badge {% if r.rental_status=='booked' %}bg-primary{% else %}bg-info text-dark{% endif %}">
+                {{ r.rental_status|replace('_',' ')|title }}
+              </span>
+            </td>
+            <td class="d-flex gap-1">
+              {% if r.rental_status == 'booked' %}
+              <form method="POST" action="{{ url_for('pickup_rental', rid=r.id) }}">
+                <button type="submit" class="btn btn-sm btn-info">Mark Pickup</button>
+              </form>
+              {% endif %}
+              {% if r.rental_status in ('booked','picked_up') %}
+              <form method="POST" action="{{ url_for('return_rental', rid=r.id) }}"
+                    onsubmit="return confirm('Mark this vehicle as returned?')">
+                <button type="submit" class="btn btn-sm btn-success">Mark Return</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted">No active rentals.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Right: Maintenance -->
+  <div class="col-lg-5">
+    <h5>Log Maintenance</h5>
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('log_maintenance') }}">
+          <div class="mb-2">
+            <label class="form-label small">Vehicle</label>
+            <select name="vehicle_id" class="form-select form-select-sm" required>
+              {% for v in vehicles %}
+              <option value="{{ v.id }}">{{ v.brand }} {{ v.model }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Maintenance Type</label>
+            <select name="maintenance_type" class="form-select form-select-sm" required>
+              <option value="oil_change">Oil Change</option>
+              <option value="tire_rotation">Tire Rotation</option>
+              <option value="engine_repair">Engine Repair</option>
+              <option value="brake_service">Brake Service</option>
+              <option value="ac_service">AC Service</option>
+              <option value="general_service">General Service</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Description</label>
+            <textarea name="description" class="form-control form-control-sm" rows="2"></textarea>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col">
+              <label class="form-label small">Cost (Rs.)</label>
+              <input type="number" name="cost" class="form-control form-control-sm" min="0" step="0.01" required>
+            </div>
+            <div class="col">
+              <label class="form-label small">Next Due Date</label>
+              <input type="date" name="next_due_date" class="form-control form-control-sm">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-dark btn-sm w-100">Add Log</button>
+        </form>
+      </div>
+    </div>
+
+    <h5>Recent Maintenance Logs</h5>
+    <div class="list-group">
+      {% for log in maintenance_logs %}
+      <div class="list-group-item list-group-item-action">
+        <div class="d-flex justify-content-between">
+          <strong>{{ log.brand }} {{ log.model }}</strong>
+          <small class="text-muted">{{ log.log_date }}</small>
+        </div>
+        <div class="small">{{ log.maintenance_type|replace('_',' ')|title }} — Rs. {{ "%.0f"|format(log.cost) }}</div>
+        {% if log.description %}<div class="text-muted small">{{ log.description }}</div>{% endif %}
+        {% if log.next_due_date %}<div class="small text-info">Next due: {{ log.next_due_date }}</div>{% endif %}
+      </div>
+      {% else %}
+      <div class="list-group-item text-muted text-center">No logs yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

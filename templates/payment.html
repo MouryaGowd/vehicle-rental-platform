@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Payment{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <h3 class="mb-3">Simulate Payment</h3>
+
+    <div class="card shadow mb-4">
+      <div class="card-header bg-dark text-white">Booking Summary</div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><th>Vehicle</th><td>{{ booking.brand }} {{ booking.model }}</td></tr>
+          <tr><th>Type</th><td>{{ booking.type|title }}</td></tr>
+          <tr><th>Pickup</th><td>{{ booking.start_datetime|replace('T', ' ') }}</td></tr>
+          <tr><th>Return</th><td>{{ booking.end_datetime|replace('T', ' ') }}</td></tr>
+          <tr><th>Payment Mode</th><td>{{ booking.payment_mode|title }}</td></tr>
+          <tr><th class="fs-5">Total Cost</th><td class="fs-5 fw-bold text-success">Rs. {{ "%.2f"|format(booking.total_cost) }}</td></tr>
+        </table>
+      </div>
+    </div>
+
+    {% if booking.payment_status == 'paid' %}
+      <div class="alert alert-success">Payment already completed for this booking.</div>
+      <a href="{{ url_for('my_rentals') }}" class="btn btn-dark">My Rentals</a>
+    {% else %}
+      <div class="card shadow">
+        <div class="card-header">Payment Details</div>
+        <div class="card-body">
+          {% if booking.payment_mode == 'card' %}
+          <div class="mb-3">
+            <label class="form-label">Card Number</label>
+            <input type="text" class="form-control" placeholder="**** **** **** 1234" maxlength="19">
+          </div>
+          <div class="row mb-3">
+            <div class="col">
+              <label class="form-label">Expiry</label>
+              <input type="text" class="form-control" placeholder="MM/YY">
+            </div>
+            <div class="col">
+              <label class="form-label">CVV</label>
+              <input type="text" class="form-control" placeholder="***" maxlength="3">
+            </div>
+          </div>
+          {% elif booking.payment_mode == 'upi' %}
+          <div class="mb-3">
+            <label class="form-label">UPI ID</label>
+            <input type="text" class="form-control" placeholder="yourname@upi">
+          </div>
+          {% elif booking.payment_mode == 'netbanking' %}
+          <div class="mb-3">
+            <label class="form-label">Bank</label>
+            <select class="form-select">
+              <option>SBI</option><option>HDFC</option><option>ICICI</option><option>Axis</option>
+            </select>
+          </div>
+          {% else %}
+          <div class="alert alert-secondary">Cash payment will be collected at vehicle pickup.</div>
+          {% endif %}
+
+          <form method="POST" action="{{ url_for('payment', booking_id=booking.id) }}">
+            <button type="submit" class="btn btn-success w-100 py-2 mt-2">
+              Pay Rs. {{ "%.2f"|format(booking.total_cost) }}
+            </button>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

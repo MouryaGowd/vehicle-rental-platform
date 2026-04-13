@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Pricing Rules{% endblock %}
+
+{% block content %}
+<h3 class="mb-4">Pricing Rules</h3>
+
+<div class="row">
+  {% for rule in rules %}
+  <div class="col-md-4 mb-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-dark text-white">
+        {{ rule.rule_type|replace('_',' ')|title }}
+      </div>
+      <div class="card-body">
+        <p class="text-muted small">{{ rule.description }}</p>
+        <p class="fs-4 fw-bold">× {{ rule.multiplier }}</p>
+        <form method="POST" action="{{ url_for('admin_pricing') }}">
+          <input type="hidden" name="rule_id" value="{{ rule.id }}">
+          <div class="input-group">
+            <input type="number" name="multiplier" class="form-control"
+                   value="{{ rule.multiplier }}" step="0.01" min="1.0" max="5.0">
+            <button type="submit" class="btn btn-dark">Update</button>
+          </div>
+          <small class="text-muted">Multiplier (e.g. 1.2 = 20% surcharge)</small>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="alert alert-info mt-3">
+  <strong>How pricing works:</strong>
+  Base cost = Price/Day × Days.
+  Weekend and seasonal multipliers are applied if applicable.
+  Late returns incur an additional fee of 50% of the daily rate per overdue day.
+</div>
+{% endblock %}

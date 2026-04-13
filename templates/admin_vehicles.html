@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Manage Vehicles{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>Manage Vehicles</h3>
+  <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#addVehicleModal">+ Add Vehicle</button>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-bordered align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th>#</th><th>Brand / Model</th><th>Type</th><th>Fuel</th>
+        <th>Seats</th><th>Price/Day</th><th>Status</th><th>Registration</th><th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vehicles %}
+      <tr>
+        <td>{{ v.id }}</td>
+        <td>{{ v.brand }} {{ v.model }}</td>
+        <td>{{ v.type|title }}</td>
+        <td>{{ v.fuel_type|title }}</td>
+        <td>{{ v.seating_capacity }}</td>
+        <td>Rs. {{ "%.0f"|format(v.price_per_day) }}</td>
+        <td>
+          <span class="badge
+            {% if v.availability_status == 'available' %}bg-success
+            {% elif v.availability_status == 'rented' %}bg-warning text-dark
+            {% else %}bg-secondary{% endif %}">
+            {{ v.availability_status|replace('_',' ')|title }}
+          </span>
+        </td>
+        <td class="small">{{ v.registration_details }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('admin_vehicles') }}"
+                onsubmit="return confirm('Delete this vehicle?')">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="vehicle_id" value="{{ v.id }}">
+            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="text-center text-muted">No vehicles found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Add Vehicle Modal -->
+<div class="modal fade" id="addVehicleModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title">Add New Vehicle</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('admin_vehicles') }}">
+        <input type="hidden" name="action" value="add">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Type</label>
+              <select name="type" class="form-select" required>
+                <option value="car">Car</option>
+                <option value="suv">SUV</option>
+                <option value="bike">Bike</option>
+                <option value="van">Van</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Brand</label>
+              <input type="text" name="brand" class="form-control" placeholder="e.g. Toyota" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Model</label>
+              <input type="text" name="model" class="form-control" placeholder="e.g. Innova" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Fuel Type</label>
+              <select name="fuel_type" class="form-select" required>
+                <option value="petrol">Petrol</option>
+                <option value="diesel">Diesel</option>
+                <option value="electric">Electric</option>
+                <option value="cng">CNG</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Seating Capacity</label>
+              <input type="number" name="seating_capacity" class="form-control" min="1" max="50" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Price per Day (Rs.)</label>
+              <input type="number" name="price_per_day" class="form-control" min="1" step="0.01" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Registration No.</label>
+              <input type="text" name="registration_details" class="form-control" placeholder="MH-01-AB-1234">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Fitness Expiry</label>
+              <input type="date" name="fitness_expiry" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Insurance Expiry</label>
+              <input type="date" name="insurance_expiry" class="form-control">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Photo Filename (from static/images/)</label>
+              <input type="text" name="photo_path" class="form-control" placeholder="car1.jpg (optional)">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-dark">Add Vehicle</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ vehicle.brand }} {{ vehicle.model }}{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="vehicle-img-wrap bg-light d-flex align-items-center justify-content-center" style="min-height:260px;">
+        {% if vehicle.photo_path %}
+          <img src="{{ url_for('static', filename='images/' + vehicle.photo_path) }}"
+               class="img-fluid rounded" alt="{{ vehicle.brand }} {{ vehicle.model }}">
+        {% else %}
+          <span class="display-1 text-muted">🚗</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="mb-0">{{ vehicle.brand }} {{ vehicle.model }}</h2>
+      <span class="badge fs-6
+        {% if vehicle.availability_status == 'available' %}bg-success
+        {% elif vehicle.availability_status == 'rented' %}bg-warning text-dark
+        {% else %}bg-secondary{% endif %}">
+        {{ vehicle.availability_status|replace('_',' ')|title }}
+      </span>
+    </div>
+
+    <table class="table table-bordered mt-3">
+      <tbody>
+        <tr><th>Type</th><td>{{ vehicle.type|title }}</td></tr>
+        <tr><th>Fuel Type</th><td>{{ vehicle.fuel_type|title }}</td></tr>
+        <tr><th>Seating Capacity</th><td>{{ vehicle.seating_capacity }} persons</td></tr>
+        <tr><th>Price / Day</th><td><strong>Rs. {{ "%.0f"|format(vehicle.price_per_day) }}</strong></td></tr>
+        <tr><th>Registration</th><td>{{ vehicle.registration_details or '—' }}</td></tr>
+        <tr><th>Fitness Expiry</th><td>{{ vehicle.fitness_expiry or '—' }}</td></tr>
+        <tr><th>Insurance Expiry</th><td>{{ vehicle.insurance_expiry or '—' }}</td></tr>
+      </tbody>
+    </table>
+
+    <div class="d-flex gap-2 mt-3">
+      <a href="{{ url_for('vehicles') }}" class="btn btn-outline-secondary">Back to Listings</a>
+      {% if session.role == 'customer' and vehicle.availability_status == 'available' %}
+      <a href="{{ url_for('book_vehicle', vid=vehicle.id) }}" class="btn btn-dark">Book This Vehicle</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<h3 class="mb-4">Admin Dashboard</h3>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card text-white bg-dark shadow-sm text-center p-3">
+      <div class="display-5 fw-bold">{{ stats.total_vehicles }}</div>
+      <div>Total Vehicles</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-success shadow-sm text-center p-3">
+      <div class="display-5 fw-bold">{{ stats.available }}</div>
+      <div>Available Now</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-warning shadow-sm text-center p-3">
+      <div class="display-5 fw-bold text-dark">{{ stats.active_rentals }}</div>
+      <div class="text-dark">Active Rentals</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-primary shadow-sm text-center p-3">
+      <div class="display-5 fw-bold">Rs. {{ "%.0f"|format(stats.total_revenue) }}</div>
+      <div>Total Revenue</div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Links -->
+<div class="d-flex gap-2 mb-4">
+  <a href="{{ url_for('admin_vehicles') }}" class="btn btn-dark">Manage Vehicles</a>
+  <a href="{{ url_for('admin_pricing') }}" class="btn btn-outline-dark">Pricing Rules</a>
+  <a href="{{ url_for('fleet_dashboard') }}" class="btn btn-outline-secondary">Fleet View</a>
+</div>
+
+<!-- Recent Bookings -->
+<h5>Recent Bookings</h5>
+<div class="table-responsive">
+  <table class="table table-bordered table-hover align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th>#</th>
+        <th>Customer</th>
+        <th>Vehicle</th>
+        <th>Dates</th>
+        <th>Cost</th>
+        <th>Payment</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in recent_bookings %}
+      <tr>
+        <td>{{ b.id }}</td>
+        <td>{{ b.customer_name }}</td>
+        <td>{{ b.brand }} {{ b.model }}</td>
+        <td class="small">{{ b.start_datetime|replace('T',' ') }}<br>→ {{ b.end_datetime|replace('T',' ') }}</td>
+        <td>Rs. {{ "%.2f"|format(b.total_cost) }}</td>
+        <td>
+          <span class="badge {% if b.payment_status == 'paid' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+            {{ b.payment_status|title }}
+          </span>
+        </td>
+        <td>
+          <span class="badge
+            {% if b.rental_status == 'booked' %}bg-primary
+            {% elif b.rental_status == 'picked_up' %}bg-info text-dark
+            {% elif b.rental_status == 'returned' %}bg-success
+            {% else %}bg-secondary{% endif %}">
+            {{ b.rental_status|replace('_',' ')|title }}
+          </span>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="text-center text-muted">No bookings yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

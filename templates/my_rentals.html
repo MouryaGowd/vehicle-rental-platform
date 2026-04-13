@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}My Rentals{% endblock %}
+
+{% block content %}
+<h3 class="mb-4">My Rentals</h3>
+
+{% if rentals %}
+<div class="table-responsive">
+  <table class="table table-bordered table-hover align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th>#</th>
+        <th>Vehicle</th>
+        <th>Pickup</th>
+        <th>Return</th>
+        <th>Total Cost</th>
+        <th>Payment</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rentals %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.brand }} {{ r.model }}<br><small class="text-muted">{{ r.type|title }} &bull; {{ r.fuel_type|title }}</small></td>
+        <td>{{ r.start_datetime|replace('T',' ') }}</td>
+        <td>{{ r.end_datetime|replace('T',' ') }}</td>
+        <td>Rs. {{ "%.2f"|format(r.total_cost) }}</td>
+        <td>
+          <span class="badge {% if r.payment_status == 'paid' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+            {{ r.payment_status|title }}
+          </span>
+        </td>
+        <td>
+          <span class="badge
+            {% if r.rental_status == 'booked' %}bg-primary
+            {% elif r.rental_status == 'picked_up' %}bg-info text-dark
+            {% elif r.rental_status == 'returned' %}bg-success
+            {% else %}bg-secondary{% endif %}">
+            {{ r.rental_status|replace('_',' ')|title }}
+          </span>
+        </td>
+        <td>
+          {% if r.payment_status == 'pending' %}
+          <a href="{{ url_for('payment', booking_id=r.id) }}" class="btn btn-warning btn-sm">Pay Now</a>
+          {% endif %}
+          {% if r.rental_status in ('booked', 'picked_up') %}
+          <button class="btn btn-outline-dark btn-sm" data-bs-toggle="modal"
+                  data-bs-target="#extendModal{{ r.id }}">Extend</button>
+          {% endif %}
+        </td>
+      </tr>
+
+      <!-- Extend Modal -->
+      {% if r.rental_status in ('booked', 'picked_up') %}
+      <div class="modal fade" id="extendModal{{ r.id }}" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Extend Rental #{{ r.id }}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('extend_rental', rid=r.id) }}">
+              <div class="modal-body">
+                <label class="form-label">Extra days to add</label>
+                <input type="number" name="extra_days" class="form-control" value="1" min="1" max="30">
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-dark">Confirm Extension</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">
+  You have no rentals yet. <a href="{{ url_for('vehicles') }}">Browse vehicles</a> to get started!
+</div>
+{% endif %}
+{% endblock %}

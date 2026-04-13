@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Book {{ vehicle.brand }} {{ vehicle.model }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <h3 class="mb-1">Book Vehicle</h3>
+    <p class="text-muted mb-3">{{ vehicle.brand }} {{ vehicle.model }} — Rs. {{ "%.0f"|format(vehicle.price_per_day) }}/day</p>
+
+    <div class="card shadow">
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('book_vehicle', vid=vehicle.id) }}" id="bookingForm">
+
+          <div class="mb-3">
+            <label class="form-label">Pickup Date & Time</label>
+            <input type="datetime-local" name="start_datetime" id="startDt" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Return Date & Time</label>
+            <input type="datetime-local" name="end_datetime" id="endDt" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Payment Mode</label>
+            <select name="payment_mode" class="form-select" required>
+              <option value="cash">Cash on Pickup</option>
+              <option value="card">Credit / Debit Card</option>
+              <option value="upi">UPI</option>
+              <option value="netbanking">Net Banking</option>
+            </select>
+          </div>
+
+          <div id="costPreview" class="alert alert-info d-none">
+            <strong>Estimated Cost:</strong> <span id="costValue">—</span>
+            <br><small class="text-muted">Final amount may vary based on seasonal/weekend pricing.</small>
+          </div>
+
+          <button type="submit" class="btn btn-dark w-100 py-2">Confirm Booking</button>
+        </form>
+      </div>
+    </div>
+    <a href="{{ url_for('vehicle_detail', vid=vehicle.id) }}" class="btn btn-link mt-2">Back to Vehicle</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const pricePerDay = {{ vehicle.price_per_day }};
+  const startDt = document.getElementById('startDt');
+  const endDt   = document.getElementById('endDt');
+  const preview = document.getElementById('costPreview');
+  const costVal = document.getElementById('costValue');
+
+  function updateCost() {
+    const s = new Date(startDt.value);
+    const e = new Date(endDt.value);
+    if (startDt.value && endDt.value && e > s) {
+      const hours = (e - s) / 3600000;
+      const days  = Math.max(1, hours / 24);
+      const cost  = (pricePerDay * days).toFixed(2);
+      costVal.textContent = 'Rs. ' + cost + ' (approx. ' + days.toFixed(1) + ' day(s))';
+      preview.classList.remove('d-none');
+    } else {
+      preview.classList.add('d-none');
+    }
+  }
+  startDt.addEventListener('change', updateCost);
+  endDt.addEventListener('change', updateCost);
+</script>
+{% endblock %}

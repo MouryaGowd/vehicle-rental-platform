@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Sign Up{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card shadow">
+      <div class="card-header bg-dark text-white text-center py-3">
+        <h4 class="mb-0">Create Account</h4>
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('signup') }}">
+          <div class="mb-3">
+            <label class="form-label">Full Name</label>
+            <input type="text" name="name" class="form-control" placeholder="Your full name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email address</label>
+            <input type="email" name="email" class="form-control" placeholder="you@example.com" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" placeholder="Min 6 characters" required minlength="6">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Driving License Number</label>
+            <input type="text" name="driving_license" class="form-control" placeholder="e.g. DL-12345678" required>
+          </div>
+          <button type="submit" class="btn btn-dark w-100 py-2">Create Account</button>
+        </form>
+        <hr>
+        <p class="text-center mb-0">
+          Already have an account? <a href="{{ url_for('login') }}">Login</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
