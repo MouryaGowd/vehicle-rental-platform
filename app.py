@@ -15,9 +15,8 @@ app = FastAPI(title="VehicleRent")
 app.add_middleware(SessionMiddleware, secret_key="vehicle-rental-secret-key-jain-2024")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# cache_size=0 disables Jinja2's LRU template cache, which avoids a hash error
-# in Jinja2 3.1.3+ when Starlette passes the context dict as template globals
-# (dicts inside the context make the cache key tuple unhashable).
+# cache_size=0 disables Jinja2's LRU template cache to avoid hash errors with
+# unhashable context values (dicts/lists) in newer Jinja2/Starlette versions.
 templates = Jinja2Templates(env=jinja2.Environment(
     loader=jinja2.FileSystemLoader("templates"),
     cache_size=0,
@@ -112,7 +111,7 @@ async def login(request: Request):
 
         _flash(request, "Invalid email or password.", "danger")
 
-    return templates.TemplateResponse("login.html", ctx(request))
+    return templates.TemplateResponse(request, "login.html", ctx(request))
 
 
 @app.api_route("/signup", methods=["GET", "POST"])
@@ -131,7 +130,7 @@ async def signup(request: Request):
         if db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone():
             _flash(request, "Email already registered.", "danger")
             db.close()
-            return templates.TemplateResponse("signup.html", ctx(request))
+            return templates.TemplateResponse(request, "signup.html", ctx(request))
 
         db.execute(
             "INSERT INTO users (name, email, password_hash, role, driving_license) VALUES (?, ?, ?, ?, ?)",
@@ -142,7 +141,7 @@ async def signup(request: Request):
         _flash(request, "Account created! Please login.", "success")
         return RedirectResponse(url="/login", status_code=302)
 
-    return templates.TemplateResponse("signup.html", ctx(request))
+    return templates.TemplateResponse(request, "signup.html", ctx(request))
 
 
 @app.api_route("/logout", methods=["GET"])
@@ -183,7 +182,7 @@ async def vehicles(request: Request):
 
     filters = dict(type=vtype, fuel=fuel, seats=seats,
                    max_price=max_price, available_only=available_only)
-    return templates.TemplateResponse("vehicles.html",
+    return templates.TemplateResponse(request, "vehicles.html",
                                       ctx(request, vehicles=vehicles_list, filters=filters))
 
 
@@ -195,7 +194,7 @@ async def vehicle_detail(request: Request, vid: int):
     if not vehicle:
         _flash(request, "Vehicle not found.", "danger")
         return RedirectResponse(url="/vehicles", status_code=302)
-    return templates.TemplateResponse("vehicle_detail.html", ctx(request, vehicle=vehicle))
+    return templates.TemplateResponse(request, "vehicle_detail.html", ctx(request, vehicle=vehicle))
 
 
 # ── Pricing engine ────────────────────────────────────────────────────────────
@@ -266,12 +265,12 @@ async def book_vehicle(request: Request, vid: int):
         except ValueError:
             _flash(request, "Invalid date format.", "danger")
             db.close()
-            return templates.TemplateResponse("booking.html", ctx(request, vehicle=vehicle))
+            return templates.TemplateResponse(request, "booking.html", ctx(request, vehicle=vehicle))
 
         if end_dt <= start_dt:
             _flash(request, "Return date/time must be after pickup.", "danger")
             db.close()
-            return templates.TemplateResponse("booking.html", ctx(request, vehicle=vehicle))
+            return templates.TemplateResponse(request, "booking.html", ctx(request, vehicle=vehicle))
 
         # Validate coupon
         discount_percent  = 0.0
@@ -310,7 +309,7 @@ async def book_vehicle(request: Request, vid: int):
         return RedirectResponse(url=f"/payment/{booking_id}", status_code=302)
 
     db.close()
-    return templates.TemplateResponse("booking.html", ctx(request, vehicle=vehicle))
+    return templates.TemplateResponse(request, "booking.html", ctx(request, vehicle=vehicle))
 
 
 @app.api_route("/payment/{booking_id}", methods=["GET", "POST"])
@@ -342,7 +341,7 @@ async def payment(request: Request, booking_id: int):
         return RedirectResponse(url="/my-rentals", status_code=302)
 
     db.close()
-    return templates.TemplateResponse("payment.html", ctx(request, booking=booking))
+    return templates.TemplateResponse(request, "payment.html", ctx(request, booking=booking))
 
 
 @app.api_route("/my-rentals", methods=["GET"])
@@ -360,7 +359,7 @@ async def my_rentals(request: Request):
         (request.session["user_id"],),
     ).fetchall()
     db.close()
-    return templates.TemplateResponse("my_rentals.html", ctx(request, rentals=rentals))
+    return templates.TemplateResponse(request, "my_rentals.html", ctx(request, rentals=rentals))
 
 
 @app.api_route("/rentals/{rid}/extend", methods=["POST"])
@@ -429,7 +428,7 @@ async def admin_dashboard(request: Request):
            ORDER BY rb.id DESC LIMIT 10"""
     ).fetchall()
     db.close()
-    return templates.TemplateResponse("admin_dashboard.html",
+    return templates.TemplateResponse(request, "admin_dashboard.html",
                                       ctx(request, stats=stats, recent_bookings=recent))
 
 
@@ -464,7 +463,7 @@ async def admin_vehicles(request: Request):
 
     vehicles_list = db.execute("SELECT * FROM vehicles ORDER BY brand, model").fetchall()
     db.close()
-    return templates.TemplateResponse("admin_vehicles.html", ctx(request, vehicles=vehicles_list))
+    return templates.TemplateResponse(request, "admin_vehicles.html", ctx(request, vehicles=vehicles_list))
 
 
 @app.api_route("/admin/pricing", methods=["GET", "POST"])
@@ -484,7 +483,7 @@ async def admin_pricing(request: Request):
 
     rules = db.execute("SELECT * FROM pricing_rules").fetchall()
     db.close()
-    return templates.TemplateResponse("admin_pricing.html", ctx(request, rules=rules))
+    return templates.TemplateResponse(request, "admin_pricing.html", ctx(request, rules=rules))
 
 
 @app.api_route("/admin/coupons", methods=["GET", "POST"])
@@ -522,7 +521,7 @@ async def admin_coupons(request: Request):
 
     coupons = db.execute("SELECT * FROM coupons ORDER BY id DESC").fetchall()
     db.close()
-    return templates.TemplateResponse("admin_coupons.html", ctx(request, coupons=coupons))
+    return templates.TemplateResponse(request, "admin_coupons.html", ctx(request, coupons=coupons))
 
 
 # ── Fleet Manager ─────────────────────────────────────────────────────────────
@@ -550,7 +549,7 @@ async def fleet_dashboard(request: Request):
     ).fetchall()
     db.close()
     return templates.TemplateResponse(
-        "fleet_dashboard.html",
+        request, "fleet_dashboard.html",
         ctx(request, vehicles=vehicles_list, maintenance_logs=logs, active_rentals=active_rentals),
     )
 
