@@ -10,12 +10,48 @@ import os
 import re
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 CHROMA_DIR = "chroma_db"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 TOP_K = 6
 HF_MODEL = "google/flan-t5-base"
+
+# Chroma's default distance is L2 over normalized embeddings, so smaller = closer.
+# Anything with a best-match distance above this is treated as "not about the hotel".
+# Calibrated against hotel_data.csv: real hotel questions score <= ~1.11
+# ("Is there a spa?"), unrelated questions score >= ~1.59 ("who won the cricket
+# match"). 1.35 sits in the gap. Re-check this if hotel_data.csv changes a lot.
+OFF_TOPIC_MAX_DISTANCE = 1.35
+
+OFF_TOPIC_MESSAGE = (
+    "I'm the JW Marriott Bengaluru concierge assistant, so I can only help with "
+    "questions about the hotel — rooms, dining, amenities, spa, events, location, "
+    "or policies. Could you ask me something about your stay?"
+)
+
+_GREETING_RE = re.compile(
+    r"^\s*(hi|hii+|hello+|hey+|good\s*(morning|afternoon|evening)|"
+    r"thanks?|thank\s*you|thx|bye|goodbye|see\s*you)[\s!.,]*$",
+    re.IGNORECASE,
+)
+
+
+def _is_greeting(question: str) -> bool:
+    return bool(_GREETING_RE.match(question))
+
+
+def _greeting_reply(question: str) -> str:
+    q = question.lower()
+    if any(w in q for w in ["thank", "thx"]):
+        return "You're most welcome! Is there anything else I can help you with?"
+    if any(w in q for w in ["bye", "goodbye", "see you"]):
+        return "Thank you for choosing JW Marriott Bengaluru — have a wonderful day!"
+    return (
+        "Hello! 👋 I'm your JW Marriott Bengaluru concierge. "
+        "Ask me about rooms, dining, amenities, spa, events, or hotel policies."
+    )
+
 
 FOLLOWUPS = {
     "suite":    "Would you like to reserve a suite, or shall I compare options for you?",
@@ -308,13 +344,20 @@ class HotelRAG:
             persist_directory=CHROMA_DIR,
             embedding_function=self._embeddings,
         )
-        self._retriever = self._vectorstore.as_retriever(
-            search_type="similarity",
-            search_kwargs={"k": TOP_K},
-        )
 
     def ask(self, question: str, hf_token: str = "") -> tuple[str, list[Document]]:
-        docs = self._retriever.invoke(question)
+        if _is_greeting(question):
+            return _greeting_reply(question), []
+
+        scored = self._vectorstore.similarity_search_with_score(question, k=TOP_K)
+        if not scored:
+            return OFF_TOPIC_MESSAGE, []
+
+        best_score = min(score for _, score in scored)
+        if best_score > OFF_TOPIC_MAX_DISTANCE:
+            return OFF_TOPIC_MESSAGE, []
+
+        docs = [doc for doc, _ in scored]
         token = hf_token or os.getenv("HF_TOKEN", "")
 
         if token:

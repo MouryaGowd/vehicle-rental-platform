@@ -7,7 +7,7 @@ Run once (or re-run to refresh):  python ingest.py
 
 import os
 import pandas as pd
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
